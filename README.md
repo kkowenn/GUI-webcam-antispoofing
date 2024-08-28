@@ -54,7 +54,7 @@ python SaveNewFaces.py
 # utilize the model 
 
 ```bash
-python SaveNewFaces.py
+python WebcamDB.py
 
 ```
 
