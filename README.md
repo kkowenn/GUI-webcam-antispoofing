@@ -45,7 +45,7 @@ cd webcam-antispoofing
 ```bash
 pip install -r requirements.txt
 ```
-# save faces data
+# save faces data (i didn't upload my dataface you have to run this first)
 
 ```bash
 python SaveNewFaces.py
