@@ -63,3 +63,6 @@ ref:
 https://github.com/ageitgey/face_recognition/blob/master/examples/facerec_from_webcam.py
 
 https://github.com/ageitgey/face_recognition/blob/master/examples/blink_detection.py
+
+https://www.datacamp.com/tutorial/face-detection-python-opencv
+
