@@ -27,6 +27,7 @@ brew install jpeg
 ```
 
 ### Then reinstall dlib
+
 ```bash
 pip uninstall dlib
 
@@ -50,7 +51,7 @@ pip install -r requirements.txt
 python SaveNewFaces.py
 
 ```
-## utilize the model 
+# utilize the model 
 
 ```bash
 python SaveNewFaces.py
