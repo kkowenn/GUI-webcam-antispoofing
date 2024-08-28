@@ -41,6 +41,9 @@ gh repo clone OwenYooYoo/webcam-antispoofing
 ```bash
 cd webcam-antispoofing
 ```
+```bash
+pip install -r requirements.txt
+```
 # save faces data
 
 ```bash
