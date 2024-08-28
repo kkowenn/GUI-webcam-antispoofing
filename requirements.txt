@@ -1,0 +1,9 @@
+opencv-python --prefer-binary
+numpy
+face-recognition
+Pillow
+pandas
+pymongo[srv]
+certifi
+pytz
+scipy
