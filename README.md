@@ -26,14 +26,14 @@ pip uninstall dlib
 pip install dlib
 ```
 
+# Running the GUI python app
+
 clone this repo
 ```bash
 gh repo clone OwenYooYoo/webcam-antispoofing
 cd webcam-antispoofing
 pip install -r requirements.txt
 ```
-
-# Running the GUI python app
 
 ```bash
 python main.py
