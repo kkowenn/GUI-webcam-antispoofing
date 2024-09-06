@@ -176,7 +176,6 @@ class FaceRecognitionAttendance:
         cv2.destroyAllWindows()
 
     def verify_data_transfer(self):
-        # Step 7: Verify the data transfer
         count_in_mongo = self.mongo_collection.count_documents({}) if self.mongo_collection else 0
         df = pd.read_csv(self.csv_file_path)
         count_in_csv = len(df)
