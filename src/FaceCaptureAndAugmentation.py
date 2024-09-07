@@ -4,9 +4,9 @@ import numpy as np
 import random
 
 class FaceCaptureAndAugmentation:
-    def __init__(self, person_name, output_dir="data/dataset_faces", num_faces_to_save=500, augmentation_limits=None):
-        self.person_name = person_name
-        self.output_dir = os.path.join(output_dir, person_name)
+    def __init__(self, user_id, output_dir="data/dataset_faces", num_faces_to_save=500, augmentation_limits=None):
+        self.user_id = user_id
+        self.output_dir = os.path.join(output_dir, user_id)
         self.num_faces_to_save = num_faces_to_save
         self.captured_faces = []
         self.face_count = 0
@@ -135,7 +135,8 @@ class FaceCaptureAndAugmentation:
         matrix = cv2.getRotationMatrix2D((w / 2, h / 2), angle, 1)
         return cv2.warpAffine(image, matrix, (w, h))
 
+
 # Example usage:
-# face_capture = FaceCaptureAndAugmentation(person_name="Enzo")
+# face_capture = FaceCaptureAndAugmentation(person_ID=6420063)
 # face_capture.capture_faces()
 # face_capture.augment_faces()

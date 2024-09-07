@@ -7,6 +7,7 @@ from src.FaceCaptureAndAugmentation import FaceCaptureAndAugmentation  # Import 
 from src.FaceRecognitionAttendance import FaceRecognitionAttendance  # Import the class
 from pymongo import MongoClient
 import certifi
+import datetime
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light")
 customtkinter.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue")
@@ -77,17 +78,17 @@ class App(customtkinter.CTk):
         self.display_attendance_button.grid(row=3, column=0, padx=20, pady=10)
 
         self.appearance_mode_label = customtkinter.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
-        self.appearance_mode_label.grid(row=4, column=0, padx=20, pady=(10, 0))
+        self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.sidebar_frame, values=["Light", "Dark", "System"],
                                                                        command=self.change_appearance_mode_event)
-        self.appearance_mode_optionemenu.grid(row=5, column=0, padx=20, pady=(10, 10))
+        self.appearance_mode_optionemenu.grid(row=6, column=0, padx=20, pady=(10, 10))
 
         # Create textbox for displaying data
         self.textbox = customtkinter.CTkTextbox(self, width=250)
         self.textbox.grid(row=0, column=1, padx=(20, 20), pady=(20, 10), sticky="nsew")
 
-        # Create entry for user name (Used for both adding and deleting users)
-        self.user_entry = customtkinter.CTkEntry(self, placeholder_text="Enter user name")
+        # Create entry for user ID (Used for both adding and deleting users)
+        self.user_entry = customtkinter.CTkEntry(self, placeholder_text="Enter user ID")
         self.user_entry.grid(row=1, column=1, padx=(20, 20), pady=(10, 5), sticky="ew")
 
         # Create button for adding user
@@ -141,27 +142,38 @@ class App(customtkinter.CTk):
         # Hide all delete widgets if appearance mode is changed
         self.hide_all_delete_widgets()
 
-    def change_scaling_event(self, new_scaling: str):
-        new_scaling_float = int(new_scaling.replace("%", "")) / 100
-        customtkinter.set_widget_scaling(new_scaling_float)
-        # Hide all delete widgets if scaling is changed
-        self.hide_all_delete_widgets()
-
     def display_attendance(self):
         # Show the delete attendance button when displaying attendance
         self.show_delete_attendance_button()
+
         try:
-            with open("data/attendance/attendancecheck.csv", newline='', encoding='utf-8') as csvfile:  # Updated path
-                reader = csv.reader(csvfile)
-                attendance_data = ""
-                for row in reader:
-                    attendance_data += ", ".join(row) + "\n"
-                self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
-                self.textbox.insert("1.0", attendance_data)  # Insert the data into the textbox
-        except FileNotFoundError:
-            tkinter.messagebox.showerror("Error", "The file 'attendancecheck.csv' was not found.")
+            # Fetch data from MongoDB
+            mongo_data = list(self.face_recognition_attendance.mongo_collection.find({}, {'_id': 0}))  # Exclude '_id' field from MongoDB documents
+
+            if not mongo_data:
+                tkinter.messagebox.showinfo("Info", "No attendance data found in MongoDB.")
+                return
+
+            attendance_data = ""
+            for record in mongo_data:
+                user_id = record.get("UserID", "Unknown")
+                timestamps = record.get("attendance", [])
+
+                # Check if 'attendance' is not a list, convert it into a list
+                if isinstance(timestamps, datetime.datetime):
+                    timestamps = [timestamps]
+
+                attendance_data += f"UserID: {user_id}\n"
+                for timestamp in timestamps:
+                    attendance_data += f"  - {timestamp}\n"
+                attendance_data += "\n"  # Add a blank line after each user's data
+
+            # Display attendance data in the textbox
+            self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
+            self.textbox.insert("1.0", attendance_data)  # Insert the data into the textbox
+
         except Exception as e:
-            tkinter.messagebox.showerror("Error", f"An error occurred: {str(e)}")
+            tkinter.messagebox.showerror("Error", f"An error occurred while fetching data from MongoDB: {str(e)}")
 
     def display_user_folders(self):
         # Show the delete user widgets when displaying users
@@ -171,7 +183,7 @@ class App(customtkinter.CTk):
             folders = os.listdir(folder_path)
             # Filter out unwanted files and focus only on directories
             folders = [folder for folder in folders if folder != ".DS_Store"]
-            folder_names = "\n".join(f"Person {index + 1}: {folder}" for index, folder in enumerate(folders))
+            folder_names = "\n".join(f"User ID {index + 1}: {folder}" for index, folder in enumerate(folders))
             self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
             self.textbox.insert("1.0", folder_names)
         except FileNotFoundError:
@@ -180,54 +192,60 @@ class App(customtkinter.CTk):
             tkinter.messagebox.showerror("Error", f"An error occurred: {str(e)}")
 
     def add_user_folder(self):
-        user_name = self.user_entry.get()
+        user_id = self.user_entry.get()
 
-        if not user_name:
-            tkinter.messagebox.showerror("Error", "Please enter a user name to add.")
+        if not user_id:
+            tkinter.messagebox.showerror("Error", "Please enter a user ID to add.")
             return
 
         try:
             # Initialize the FaceCaptureAndAugmentation process
-            face_capture = FaceCaptureAndAugmentation(person_name=user_name)
+            face_capture = FaceCaptureAndAugmentation(user_id=user_id)
             face_capture.capture_faces()  # Capture faces
             face_capture.augment_faces()  # Perform augmentation
 
-            tkinter.messagebox.showinfo("Success", f"User '{user_name}' has been added with captured and augmented faces.")
+            tkinter.messagebox.showinfo("Success", f"User with ID '{user_id}' has been added with captured and augmented faces.")
             self.display_user_folders()  # Refresh the displayed list of users
         except Exception as e:
             tkinter.messagebox.showerror("Error", f"An error occurred while adding the user: {str(e)}")
 
     def delete_user_folder(self):
-        user_name = self.user_entry.get()
+        user_id = self.user_entry.get()
 
-        if not user_name:
-            tkinter.messagebox.showerror("Error", "Please enter a user name to delete.")
+        if not user_id:
+            tkinter.messagebox.showerror("Error", "Please enter a user ID to delete.")
             return
 
-        target_folder = os.path.join("data/dataset_faces", user_name)
+        target_folder = os.path.join("data/dataset_faces", user_id)
 
         if os.path.exists(target_folder):
             try:
                 shutil.rmtree(target_folder)
-                tkinter.messagebox.showinfo("Success", f"User '{user_name}' has been deleted.")
+                tkinter.messagebox.showinfo("Success", f"User with ID '{user_id}' has been deleted.")
                 self.display_user_folders()  # Refresh the displayed list of users
             except Exception as e:
                 tkinter.messagebox.showerror("Error", f"An error occurred while deleting the user: {str(e)}")
         else:
-            tkinter.messagebox.showerror("Error", f"The user '{user_name}' does not exist.")
+            tkinter.messagebox.showerror("Error", f"The user with ID '{user_id}' does not exist.")
 
     def delete_attendance_csv(self):
         try:
-            if os.path.exists("data/attendance/attendancecheck.csv"):  # Updated path
-                # Open the file in write mode to clear its contents
-                with open("data/attendance/attendancecheck.csv", 'w', newline='', encoding='utf-8') as csvfile:
-                    csvfile.truncate(0)  # Truncate the file to remove all content
+            # Delete the attendance file if it exists
+            if os.path.exists(self.face_recognition_attendance.csv_file_path):
+                with open(self.face_recognition_attendance.csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
+                    csvfile.truncate(0)  # Truncate the file to clear all content
                 self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
-                tkinter.messagebox.showinfo("Success", "The attendance file data has been cleared.")
+                tkinter.messagebox.showinfo("Success", "The attendance file has been cleared.")
+
+            # Now, delete all documents in MongoDB attendance collection
+            result = self.face_recognition_attendance.mongo_collection.delete_many({})
+            if result.deleted_count > 0:
+                tkinter.messagebox.showinfo("Success", "Attendance data deleted from MongoDB.")
             else:
-                tkinter.messagebox.showerror("Error", "The attendance file does not exist.")
+                tkinter.messagebox.showinfo("Info", "No data to delete in MongoDB.")
+
         except Exception as e:
-            tkinter.messagebox.showerror("Error", f"An error occurred while clearing the attendance file: {str(e)}")
+            tkinter.messagebox.showerror("Error", f"An error occurred while clearing the attendance file and database: {str(e)}")
 
     def start_face_recognition(self):
         if self.face_recognition_attendance:
