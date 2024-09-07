@@ -4,15 +4,13 @@ import face_recognition
 import numpy as np
 from scipy.spatial import distance as dist
 import datetime
-import csv
 import pandas as pd
 import pytz
 import time
 
 class FaceRecognitionAttendance:
-    def __init__(self, dataset_path, csv_file_path, mongo_collection=None):
+    def __init__(self, dataset_path, mongo_collection=None):
         self.dataset_path = dataset_path
-        self.csv_file_path = csv_file_path
         self.mongo_collection = mongo_collection
         self.known_face_encodings, self.known_user_ids = self.load_face_encodings()
 
@@ -34,7 +32,6 @@ class FaceRecognitionAttendance:
                             known_user_ids.append(user_id)
         return known_face_encodings, known_user_ids
 
-
     def fetch_data_from_mongo(self):
         try:
             mongo_data = list(self.mongo_collection.find({}, {'_id': 0}))  # Exclude MongoDB-specific '_id' field
@@ -48,22 +45,8 @@ class FaceRecognitionAttendance:
             print(f"Error fetching data from MongoDB: {e}")
             return None
 
-
-    def update_csv_from_mongo(self):
-        mongo_data = self.fetch_data_from_mongo()
-        if mongo_data is None:
-            print("Error: Unable to fetch data from MongoDB.")
-            return
-        try:
-            mongo_data.to_csv(self.csv_file_path, index=False)  # Overwrite the existing CSV file
-            print(f"CSV file '{self.csv_file_path}' successfully updated from MongoDB.")
-        except Exception as e:
-            print(f"Error updating CSV file: {e}")
-
-
     def process_video_stream(self):
         video_capture = cv2.VideoCapture(0)
-
 
         while True:
             ret, frame = video_capture.read()
@@ -140,3 +123,4 @@ class FaceRecognitionAttendance:
 
         except Exception as e:
             print(f"Error logging attendance in MongoDB: {e}")
+

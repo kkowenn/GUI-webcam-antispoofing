@@ -2,7 +2,6 @@ import tkinter
 import customtkinter
 import os
 import shutil
-import csv
 from src.FaceCaptureAndAugmentation import FaceCaptureAndAugmentation  # Import the class
 from src.FaceRecognitionAttendance import FaceRecognitionAttendance  # Import the class
 from pymongo import MongoClient
@@ -27,8 +26,7 @@ class App(customtkinter.CTk):
         # Initialize FaceRecognitionAttendance instance with MongoDB collection
         self.face_recognition_attendance = FaceRecognitionAttendance(
             dataset_path='data/dataset_faces',
-            csv_file_path='data/attendance/attendancecheck.csv',  # Updated path
-            mongo_collection=collection
+            mongo_collection=collection  # Removed the CSV path since it's not needed anymore
         )
 
         # Configure window
@@ -47,7 +45,7 @@ class App(customtkinter.CTk):
         self.logo_label = customtkinter.CTkLabel(self.sidebar_frame, text="AfterFall", font=customtkinter.CTkFont(size=40, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # Start Webcam Button (Reordered)
+        # Start Webcam Button
         self.start_webcam_button = customtkinter.CTkButton(
             self.sidebar_frame,
             text="Start Webcam",
@@ -57,7 +55,7 @@ class App(customtkinter.CTk):
         )
         self.start_webcam_button.grid(row=1, column=0, padx=20, pady=10)
 
-        # Display User Button (Reordered)
+        # Display User Button
         self.display_folders_button = customtkinter.CTkButton(
             self.sidebar_frame,
             text="Display User",
@@ -67,7 +65,7 @@ class App(customtkinter.CTk):
         )
         self.display_folders_button.grid(row=2, column=0, padx=20, pady=10)
 
-        # Display Attendance Button (Reordered)
+        # Display Attendance Button
         self.display_attendance_button = customtkinter.CTkButton(
             self.sidebar_frame,
             text="Display Attendance",
@@ -77,6 +75,7 @@ class App(customtkinter.CTk):
         )
         self.display_attendance_button.grid(row=3, column=0, padx=20, pady=10)
 
+        # Appearance mode label
         self.appearance_mode_label = customtkinter.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
         self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.sidebar_frame, values=["Light", "Dark", "System"],
@@ -111,11 +110,11 @@ class App(customtkinter.CTk):
         )
         self.delete_user_button.grid(row=3, column=1, padx=(20, 20), pady=(5, 20), sticky="ew")
 
-        # Create button for deleting entire attendance CSV (Initially Hidden)
+        # Create button for deleting entire attendance records in MongoDB
         self.delete_attendance_button = customtkinter.CTkButton(
             self,
             text="Delete Attendance",
-            command=self.delete_attendance_csv,
+            command=self.delete_attendance_records,
             fg_color="red",  # Button color
             hover_color="darkred"  # Hover color
         )
@@ -139,11 +138,9 @@ class App(customtkinter.CTk):
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
-        # Hide all delete widgets if appearance mode is changed
         self.hide_all_delete_widgets()
 
     def display_attendance(self):
-        # Show the delete attendance button when displaying attendance
         self.show_delete_attendance_button()
 
         try:
@@ -159,32 +156,28 @@ class App(customtkinter.CTk):
                 user_id = record.get("UserID", "Unknown")
                 timestamps = record.get("attendance", [])
 
-                # Check if 'attendance' is not a list, convert it into a list
                 if isinstance(timestamps, datetime.datetime):
                     timestamps = [timestamps]
 
                 attendance_data += f"UserID: {user_id}\n"
                 for timestamp in timestamps:
                     attendance_data += f"  - {timestamp}\n"
-                attendance_data += "\n"  # Add a blank line after each user's data
+                attendance_data += "\n"
 
-            # Display attendance data in the textbox
-            self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
-            self.textbox.insert("1.0", attendance_data)  # Insert the data into the textbox
+            self.textbox.delete("1.0", tkinter.END)
+            self.textbox.insert("1.0", attendance_data)
 
         except Exception as e:
             tkinter.messagebox.showerror("Error", f"An error occurred while fetching data from MongoDB: {str(e)}")
 
     def display_user_folders(self):
-        # Show the delete user widgets when displaying users
         self.show_delete_user_widgets()
         folder_path = "data/dataset_faces"
         try:
             folders = os.listdir(folder_path)
-            # Filter out unwanted files and focus only on directories
             folders = [folder for folder in folders if folder != ".DS_Store"]
             folder_names = "\n".join(f"User ID {index + 1}: {folder}" for index, folder in enumerate(folders))
-            self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
+            self.textbox.delete("1.0", tkinter.END)
             self.textbox.insert("1.0", folder_names)
         except FileNotFoundError:
             tkinter.messagebox.showerror("Error", f"The folder path '{folder_path}' was not found.")
@@ -199,7 +192,6 @@ class App(customtkinter.CTk):
             return
 
         try:
-            # Initialize the FaceCaptureAndAugmentation process
             face_capture = FaceCaptureAndAugmentation(user_id=user_id)
             face_capture.capture_faces()  # Capture faces
             face_capture.augment_faces()  # Perform augmentation
@@ -228,16 +220,9 @@ class App(customtkinter.CTk):
         else:
             tkinter.messagebox.showerror("Error", f"The user with ID '{user_id}' does not exist.")
 
-    def delete_attendance_csv(self):
+    def delete_attendance_records(self):
         try:
-            # Delete the attendance file if it exists
-            if os.path.exists(self.face_recognition_attendance.csv_file_path):
-                with open(self.face_recognition_attendance.csv_file_path, 'w', newline='', encoding='utf-8') as csvfile:
-                    csvfile.truncate(0)  # Truncate the file to clear all content
-                self.textbox.delete("1.0", tkinter.END)  # Clear the textbox
-                tkinter.messagebox.showinfo("Success", "The attendance file has been cleared.")
-
-            # Now, delete all documents in MongoDB attendance collection
+            # Delete all documents in MongoDB attendance collection
             result = self.face_recognition_attendance.mongo_collection.delete_many({})
             if result.deleted_count > 0:
                 tkinter.messagebox.showinfo("Success", "Attendance data deleted from MongoDB.")
@@ -245,53 +230,33 @@ class App(customtkinter.CTk):
                 tkinter.messagebox.showinfo("Info", "No data to delete in MongoDB.")
 
         except Exception as e:
-            tkinter.messagebox.showerror("Error", f"An error occurred while clearing the attendance file and database: {str(e)}")
+            tkinter.messagebox.showerror("Error", f"An error occurred while deleting attendance data: {str(e)}")
 
     def start_face_recognition(self):
         if self.face_recognition_attendance:
-            # Start the face recognition process
             self.face_recognition_attendance.process_video_stream()
         else:
             tkinter.messagebox.showerror("Error", "Webcam is not initialized. Please click 'Start Webcam' first.")
 
-    def verify_data(self):
-        if self.face_recognition_attendance:
-            # Verify data transfer
-            self.face_recognition_attendance.verify_data_transfer()
-        else:
-            tkinter.messagebox.showerror("Error", "Webcam is not initialized. Please click 'Start Webcam' first.")
-
-    def display_attendance_documents(self):
-        if self.face_recognition_attendance:
-            # Display documents in attendance collection
-            self.face_recognition_attendance.display_documents()
-        else:
-            tkinter.messagebox.showerror("Error", "Webcam is not initialized. Please click 'Start Webcam' first.")
-
     def show_delete_user_widgets(self):
-        # Show the add and delete user widgets and hide delete attendance widgets
         self.user_entry.grid(row=1, column=1, padx=(20, 20), pady=(10, 5), sticky="ew")
         self.add_user_button.grid(row=2, column=1, padx=(20, 20), pady=(5, 5), sticky="ew")
         self.delete_user_button.grid(row=3, column=1, padx=(20, 20), pady=(5, 20), sticky="ew")
         self.hide_delete_attendance_widgets()
 
     def show_delete_attendance_button(self):
-        # Show the delete attendance button and hide user widgets
         self.delete_attendance_button.grid(row=2, column=1, padx=(20, 20), pady=(5, 20), sticky="ew")
         self.hide_delete_user_widgets()
 
     def hide_delete_user_widgets(self):
-        # Hide the add and delete user widgets
         self.user_entry.grid_forget()
         self.add_user_button.grid_forget()
         self.delete_user_button.grid_forget()
 
     def hide_delete_attendance_widgets(self):
-        # Hide the delete attendance widgets
         self.delete_attendance_button.grid_forget()
 
     def hide_all_delete_widgets(self):
-        # Hide all delete widgets
         self.hide_delete_user_widgets()
         self.hide_delete_attendance_widgets()
 
