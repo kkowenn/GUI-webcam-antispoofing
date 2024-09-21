@@ -26,7 +26,7 @@ class App(customtkinter.CTk):
         # Initialize FaceRecognitionAttendance instance with MongoDB collection
         self.face_recognition_attendance = FaceRecognitionAttendance(
             dataset_path='data/dataset_faces',
-            mongo_collection=collection  # Removed the CSV path since it's not needed anymore
+            mongo_collection=collection  # MongoDB collection
         )
 
         # Configure window
