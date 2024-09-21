@@ -45,27 +45,8 @@ class FaceRecognitionAttendance:
             print(f"Error fetching data from MongoDB: {e}")
             return None
 
-    def eye_aspect_ratio(self, eye):
-        A = dist.euclidean(eye[1], eye[5])
-        B = dist.euclidean(eye[2], eye[4])
-        C = dist.euclidean(eye[0], eye[3])
-        ear = (A + B) / (2.0 * C)
-        return ear
-
-    def is_blinking(self, face_landmarks, threshold=0.3):
-        left_eye = face_landmarks["left_eye"]
-        right_eye = face_landmarks["right_eye"]
-        left_ear = self.eye_aspect_ratio(left_eye)
-        right_ear = self.eye_aspect_ratio(right_eye)
-        avg_ear = (left_ear + right_ear) / 2.0
-        return avg_ear < threshold
-
     def process_video_stream(self):
         video_capture = cv2.VideoCapture(0)
-        EYE_AR_THRESH = 0.25
-        EYE_AR_CONSEC_FRAMES = 3
-        blink_counter = {}
-        has_logged_blink = {}
 
         while True:
             ret, frame = video_capture.read()
@@ -76,49 +57,28 @@ class FaceRecognitionAttendance:
             face_locations = face_recognition.face_locations(rgb_frame)
             face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
             current_time = time.time()
-
             for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
                 face_distances = face_recognition.face_distance(self.known_face_encodings, face_encoding)
                 best_match_index = np.argmin(face_distances)
                 user_id = "Unknown"
                 confidence = 0.0
-
                 if face_distances[best_match_index] < 0.6:
                     user_id = self.known_user_ids[best_match_index]
                     confidence = 1 - face_distances[best_match_index]
-
-                face_landmarks_list = face_recognition.face_landmarks(rgb_frame)
-
-                if face_landmarks_list:
-                    face_landmarks = face_landmarks_list[0]
-                    if user_id not in blink_counter:
-                        blink_counter[user_id] = 0
-                    if user_id not in has_logged_blink:
-                        has_logged_blink[user_id] = False
-
-                    # Check for blinking
-                    if self.is_blinking(face_landmarks, threshold=EYE_AR_THRESH):
-                        blink_counter[user_id] += 1
-                    else:
-                        if blink_counter[user_id] >= EYE_AR_CONSEC_FRAMES and not has_logged_blink[user_id]:
-                            self.log_attendance(user_id)
-                            has_logged_blink[user_id] = True
-                            blink_counter[user_id] = 0
-
-                    accuracy = confidence * 100
-                    if has_logged_blink[user_id]:
-                        cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
-                        cv2.putText(frame, f"{user_id} - Real ({accuracy:.2f}%)",
-                                    (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
-                    else:
-                        cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
-                        cv2.putText(frame, f"{user_id} - Fake ({accuracy:.2f}%)",
-                                    (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
-
+                accuracy = confidence * 100  # Convert to percentage
+                if user_id != "Unknown":
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{user_id} - Real ({accuracy:.2f}%)",
+                                (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 255, 0), 2)
+                    # Log attendance when recognized
+                    self.log_attendance(user_id)
+                else:
+                    cv2.rectangle(frame, (left, top), (right, bottom), (0, 0, 255), 2)
+                    cv2.putText(frame, f"{user_id} - Fake ({accuracy:.2f}%)",
+                                (left, top - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
             cv2.imshow('Video', frame)
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
-
         video_capture.release()
         cv2.destroyAllWindows()
 
@@ -128,23 +88,32 @@ class FaceRecognitionAttendance:
 
         try:
             if self.mongo_collection is not None:
+                # Check if the user document already exists
                 user_doc = self.mongo_collection.find_one({'UserID': user_id})
+
                 if user_doc:
+                    # If 'attendance' exists and is not an array, convert it to an array
                     if not isinstance(user_doc.get('attendance'), list):
                         self.mongo_collection.update_one(
                             {'UserID': user_id},
                             {'$set': {'attendance': [user_doc['attendance']]}}
                         )
-                        user_doc = self.mongo_collection.find_one({'UserID': user_id})
+                        user_doc = self.mongo_collection.find_one({'UserID': user_id})  # Refresh user document
 
+                    # Get the latest timestamp in the attendance array
                     if 'attendance' in user_doc and user_doc['attendance']:
                         last_timestamp = user_doc['attendance'][-1]
+
+                        # Convert the last_timestamp to be timezone-aware if it's naive
                         if last_timestamp.tzinfo is None:
                             last_timestamp = last_timestamp.replace(tzinfo=pytz.UTC)
+
+                        # Skip logging if the last timestamp is within the cooldown period (2-3 minutes)
                         if last_timestamp + cooldown_period > timestamp:
                             print(f"Attendance for {user_id} was already logged within the last 3 minutes.")
                             return
 
+                # Log the new attendance timestamp by appending to the 'attendance' array
                 self.mongo_collection.update_one(
                     {'UserID': user_id},
                     {'$push': {'attendance': timestamp}},
@@ -154,3 +123,4 @@ class FaceRecognitionAttendance:
 
         except Exception as e:
             print(f"Error logging attendance in MongoDB: {e}")
+
