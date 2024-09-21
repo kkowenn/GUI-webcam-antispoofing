@@ -7,6 +7,7 @@ from src.FaceRecognitionAttendance import FaceRecognitionAttendance  # Import th
 from pymongo import MongoClient
 import certifi
 import datetime
+import pytz
 
 customtkinter.set_appearance_mode("System")  # Modes: "System" (standard), "Dark", "Light")
 customtkinter.set_default_color_theme("dark-blue")  # Themes: "blue" (standard), "green", "dark-blue")
@@ -152,6 +153,7 @@ class App(customtkinter.CTk):
                 return
 
             attendance_data = ""
+            thailand_tz = pytz.timezone('Asia/Bangkok')  # Define Thailand timezone
             for record in mongo_data:
                 user_id = record.get("UserID", "Unknown")
                 timestamps = record.get("attendance", [])
@@ -161,7 +163,12 @@ class App(customtkinter.CTk):
 
                 attendance_data += f"UserID: {user_id}\n"
                 for timestamp in timestamps:
-                    attendance_data += f"  - {timestamp}\n"
+                    if timestamp.tzinfo is None:  # If timezone info is missing
+                        timestamp = pytz.UTC.localize(timestamp)
+
+                    # Convert timestamp to Thailand time
+                    timestamp_thailand = timestamp.astimezone(thailand_tz)
+                    attendance_data += f"  - {timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')}\n"
                 attendance_data += "\n"
 
             self.textbox.delete("1.0", tkinter.END)

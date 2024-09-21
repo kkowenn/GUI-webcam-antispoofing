@@ -123,12 +123,19 @@ class FaceRecognitionAttendance:
         cv2.destroyAllWindows()
 
     def log_attendance(self, user_id):
-        timestamp = datetime.datetime.now(pytz.UTC)  # Use UTC timezone for consistency
-        cooldown_period = datetime.timedelta(minutes=3)  # Set cooldown period of 3 minutes
+        # Get the current time in UTC
+        timestamp_utc = datetime.datetime.now(pytz.UTC)
+
+        # Convert to Thailand timezone (UTC+7)
+        thailand_tz = pytz.timezone('Asia/Bangkok')
+        timestamp_thailand = timestamp_utc.astimezone(thailand_tz)
+
+        cooldown_period = datetime.timedelta(minutes=3)
 
         try:
             if self.mongo_collection is not None:
                 user_doc = self.mongo_collection.find_one({'UserID': user_id})
+
                 if user_doc:
                     if not isinstance(user_doc.get('attendance'), list):
                         self.mongo_collection.update_one(
@@ -141,16 +148,17 @@ class FaceRecognitionAttendance:
                         last_timestamp = user_doc['attendance'][-1]
                         if last_timestamp.tzinfo is None:
                             last_timestamp = last_timestamp.replace(tzinfo=pytz.UTC)
-                        if last_timestamp + cooldown_period > timestamp:
+                        if last_timestamp + cooldown_period > timestamp_utc:
                             print(f"Attendance for {user_id} was already logged within the last 3 minutes.")
                             return
 
+                # Store the timestamp in MongoDB with the correct timezone
                 self.mongo_collection.update_one(
                     {'UserID': user_id},
-                    {'$push': {'attendance': timestamp}},
+                    {'$push': {'attendance': timestamp_thailand}},
                     upsert=True
                 )
-                print(f"Attendance logged in MongoDB for {user_id} at {timestamp}")
+                print(f"Attendance logged in MongoDB for {user_id} at {timestamp_thailand}")
 
         except Exception as e:
             print(f"Error logging attendance in MongoDB: {e}")
