@@ -169,49 +169,40 @@ class App(customtkinter.CTk):
         self.hide_all_delete_widgets()
 
     def display_attendance(self):
-        self.hide_all_delete_widgets()  # Ensure all other widgets are hidden
-        self.show_delete_attendance_button()
-
         try:
-            # Fetch data from MongoDB
-            mongo_data = list(self.face_recognition_attendance.mongo_collection.find({}, {'_id': 0}))  # Exclude '_id' field from MongoDB documents
+            # Fetch all attendance records from the MongoDB collection
+            attendance_records = list(self.face_recognition_attendance.mongo_collection.find({}))
 
-            if not mongo_data:
-                tkinter.messagebox.showinfo("Info", "No attendance data found in MongoDB.")
+            if not attendance_records:
+                self.textbox.delete("1.0", tkinter.END)
+                self.textbox.insert("1.0", "No attendance records found.")
                 return
 
+            # Prepare a string to hold all the attendance data
             attendance_data = ""
-            thailand_tz = pytz.timezone('Asia/Bangkok')  # Define Thailand timezone
 
-            for record in mongo_data:
-                user_id = record.get("UserID", "Unknown")
-                attendance_list = record.get("attendance", [])
-                class_id = record.get("classID", "Unknown")  # Get the class ID for the user
+            # Iterate over all attendance records
+            for record in attendance_records:
+                user_id = record.get('UserID', 'Unknown')
+                class_id = record.get('classID', 'Unknown')
+                attendance_list = record.get('attendance', [])
 
-                # Sort the attendance timestamps in descending order (most recent first)
-                attendance_list.sort(reverse=True)
+                # Add the user and class information
+                attendance_data += f"UserID: {user_id} ClassID: {class_id}\n"
 
-                # Check if attendance data exists
-                if attendance_list:
-                    for timestamp in attendance_list:
-                        if isinstance(timestamp, datetime.datetime):
-                            if timestamp.tzinfo is None:  # If timezone info is missing
-                                timestamp = pytz.UTC.localize(timestamp)
+                # Append each attendance timestamp
+                for timestamp in attendance_list:
+                    attendance_data += f"  - {timestamp}\n"
 
-                            # Convert timestamp to Thailand time
-                            timestamp_thailand = timestamp.astimezone(thailand_tz)
-                            formatted_timestamp = timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')
+                attendance_data += "\n"  # Separate records with a newline for clarity
 
-                            # Display the UserID, ClassID, and timestamp in one line
-                            attendance_data += f"UserID: {user_id} ClassID: {class_id} - {formatted_timestamp}\n"
-
-            # Display the formatted attendance data in the textbox
+            # Display the attendance data in the textbox
             self.textbox.delete("1.0", tkinter.END)
             self.textbox.insert("1.0", attendance_data)
 
         except Exception as e:
-            tkinter.messagebox.showerror("Error", f"An error occurred while fetching attendance data: {str(e)}")
-            print(f"Error: {str(e)}")  # Log the error for debugging
+            self.textbox.delete("1.0", tkinter.END)
+            self.textbox.insert("1.0", f"Error retrieving attendance data: {e}")
 
     def display_user_folders(self):
         """

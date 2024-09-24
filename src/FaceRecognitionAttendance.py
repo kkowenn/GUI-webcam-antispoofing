@@ -123,29 +123,36 @@ class FaceRecognitionAttendance:
         video_capture.release()
         cv2.destroyAllWindows()
 
-
     def log_attendance(self, user_id, matched_class_code):
-        # The rest of your attendance logging logic
+        # Get the current time in UTC and convert it to Thailand timezone
         timestamp_utc = datetime.datetime.now(pytz.UTC)
         thailand_tz = pytz.timezone('Asia/Bangkok')
         timestamp_thailand = timestamp_utc.astimezone(thailand_tz)
 
         try:
             if self.mongo_collection is not None:
-                user_doc = self.mongo_collection.find_one({'UserID': user_id})
+                # Check if document exists for the given userID and classID
+                user_doc = self.mongo_collection.find_one({'UserID': user_id, 'classID': matched_class_code})
+
+                print(f"Found document for UserID: {user_id}, ClassID: {matched_class_code}: {user_doc}")
 
                 if not user_doc:
-                    self.mongo_collection.insert_one({
+                    # Insert a new document if none exists for this user and class
+                    result = self.mongo_collection.insert_one({
                         'UserID': user_id,
                         'attendance': [timestamp_thailand],
                         'classID': matched_class_code
                     })
+                    print(f"Insertion result: {result.inserted_id}")
                 else:
-                    self.mongo_collection.update_one(
-                        {'UserID': user_id},
-                        {'$push': {'attendance': timestamp_thailand}, '$set': {'classID': matched_class_code}},
-                        upsert=True
+                    # If the document exists, push the new attendance timestamp
+                    update_result = self.mongo_collection.update_one(
+                        {'UserID': user_id, 'classID': matched_class_code},
+                        {'$push': {'attendance': timestamp_thailand}}  # Push attendance to the array
                     )
+
+                    # Debugging: Check the result of the update operation
+                    print(f"Matched count: {update_result.matched_count}, Modified count: {update_result.modified_count}")
 
                 print(f"Attendance logged for {user_id} in class {matched_class_code}")
 

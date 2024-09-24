@@ -27,7 +27,7 @@ def save_all_data_to_csv():
                 df = pd.DataFrame(documents)
 
                 # Save DataFrame to CSV file
-                csv_filename = f"{collection_name}.csv"
+                csv_filename = f"scripts/exampleOfDatabase{collection_name}.csv"
                 df.to_csv(csv_filename, index=False)
 
                 print(f"Data from collection '{collection_name}' saved to {csv_filename}")
