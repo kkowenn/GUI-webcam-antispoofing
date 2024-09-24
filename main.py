@@ -182,14 +182,45 @@ class App(customtkinter.CTk):
             tkinter.messagebox.showerror("Error", f"An error occurred while fetching data from MongoDB: {str(e)}")
 
     def display_user_folders(self):
+        """
+        Fetch all users from the MongoDB database and compare them to the local dataset folders.
+        Display users with no faces dataset and log whether the folder for each user exists or not.
+        Show all users at the end of the list.
+        """
         self.show_delete_user_widgets()
         folder_path = "data/dataset_faces"
+
         try:
+            # Fetch all users from the MongoDB 'attendances' collection
+            mongo_users = list(self.face_recognition_attendance.mongo_collection.find({}, {'UserID': 1, '_id': 0}))
+            if not mongo_users:
+                tkinter.messagebox.showinfo("Info", "No users found in MongoDB.")
+                return
+
+            # List all folders in the dataset_faces directory
             folders = os.listdir(folder_path)
             folders = [folder for folder in folders if folder != ".DS_Store"]
-            folder_names = "\n".join(f"User ID {index + 1}: {folder}" for index, folder in enumerate(folders))
+
+            # Prepare MongoDB user list for easier comparison
+            mongo_user_ids = [user.get("UserID") for user in mongo_users]
+
+            # Prepare the data to display in the textbox
+            user_data = "No faces record on this local device, please add the green button below\n"
+
+            # Display users in MongoDB with no corresponding local folder
+            for user_id in mongo_user_ids:
+                if user_id not in folders:
+                    user_data += f"UserID {user_id}: No faces record\n"
+
+            # Add all users at the end
+            user_data += "\nAll users:\n"
+            for user_id in mongo_user_ids:
+                user_data += f"UserID {user_id}\n"
+
+            # Display the user data in the textbox
             self.textbox.delete("1.0", tkinter.END)
-            self.textbox.insert("1.0", folder_names)
+            self.textbox.insert("1.0", user_data)
+
         except FileNotFoundError:
             tkinter.messagebox.showerror("Error", f"The folder path '{folder_path}' was not found.")
         except Exception as e:
