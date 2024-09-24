@@ -154,23 +154,27 @@ class App(customtkinter.CTk):
 
             attendance_data = ""
             thailand_tz = pytz.timezone('Asia/Bangkok')  # Define Thailand timezone
+
             for record in mongo_data:
                 user_id = record.get("UserID", "Unknown")
-                timestamps = record.get("attendance", [])
-
-                if isinstance(timestamps, datetime.datetime):
-                    timestamps = [timestamps]
+                attendance_list = record.get("attendance", [])
+                class_id = record.get("classID", "Unknown")  # Get the class ID for the user
 
                 attendance_data += f"UserID: {user_id}\n"
-                for timestamp in timestamps:
-                    if timestamp.tzinfo is None:  # If timezone info is missing
-                        timestamp = pytz.UTC.localize(timestamp)
+                attendance_data += f"  ClassID: {class_id}\n"  # Display the class ID for the user's attendance
 
-                    # Convert timestamp to Thailand time
-                    timestamp_thailand = timestamp.astimezone(thailand_tz)
-                    attendance_data += f"  - {timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')}\n"
+                for timestamp in attendance_list:
+                    if isinstance(timestamp, datetime.datetime):
+                        if timestamp.tzinfo is None:  # If timezone info is missing
+                            timestamp = pytz.UTC.localize(timestamp)
+
+                        # Convert timestamp to Thailand time
+                        timestamp_thailand = timestamp.astimezone(thailand_tz)
+                        attendance_data += f"    - {timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')}\n"
+
                 attendance_data += "\n"
 
+            # Display the formatted attendance data in the textbox
             self.textbox.delete("1.0", tkinter.END)
             self.textbox.insert("1.0", attendance_data)
 
