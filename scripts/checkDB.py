@@ -1,5 +1,7 @@
 from pymongo import MongoClient
 import certifi
+import datetime
+import pytz
 
 def check_mongodb_connection():
     try:
@@ -15,15 +17,34 @@ def check_mongodb_connection():
 
         # Access the database and collection
         db = client['afterfall']  # Replace 'afterfall' with your database name
-        collection = db['attendance']  # Replace 'attendance' with your collection name
+        collection = db['attendances']  # Replace 'attendances' with your collection name
 
         # Display all attendance records
         attendance_records = list(collection.find())
 
         if attendance_records:
             print("\nAll Attendance Records in MongoDB:")
+            thailand_tz = pytz.timezone('Asia/Bangkok')  # Define Thailand timezone
+
             for record in attendance_records:
-                print(f"UserID: {record.get('UserID')}, Timestamp: {record.get('attendance')}")
+                user_id = record.get('UserID', "Unknown")
+                timestamps = record.get('attendance', [])
+
+                # Ensure that timestamps is a list
+                if isinstance(timestamps, list) and timestamps:
+                    print(f"UserID: {user_id}")
+
+                    # Loop through the timestamps
+                    for timestamp in timestamps:
+                        if isinstance(timestamp, datetime.datetime):
+                            if timestamp.tzinfo is None:  # Add timezone info if missing
+                                timestamp = pytz.UTC.localize(timestamp)
+
+                            # Convert timestamp to Thailand time
+                            timestamp_thailand = timestamp.astimezone(thailand_tz)
+                            print(f"  - {timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')}")
+                else:
+                    print(f"UserID: {user_id} has no valid attendance records.")
         else:
             print("\nNo attendance records found in the database.")
 
@@ -32,3 +53,4 @@ def check_mongodb_connection():
 
 if __name__ == "__main__":
     check_mongodb_connection()
+

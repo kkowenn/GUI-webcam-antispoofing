@@ -134,13 +134,19 @@ class FaceRecognitionAttendance:
 
         try:
             if self.mongo_collection is not None:
+                # Create or update the user document with attendance
                 user_doc = self.mongo_collection.find_one({'UserID': user_id})
 
-                if user_doc:
+                if not user_doc:
+                    # If user does not exist, create the document
+                    self.mongo_collection.insert_one({'UserID': user_id, 'attendance': [timestamp_thailand]})
+                else:
+                    # Ensure 'attendance' is a list and append new timestamp
                     if not isinstance(user_doc.get('attendance'), list):
                         self.mongo_collection.update_one(
                             {'UserID': user_id},
-                            {'$set': {'attendance': [user_doc['attendance']]}}
+                            {'$set': {'attendance': [user_doc['attendance']]}},
+                            upsert=True
                         )
                         user_doc = self.mongo_collection.find_one({'UserID': user_id})
 
@@ -152,13 +158,17 @@ class FaceRecognitionAttendance:
                             print(f"Attendance for {user_id} was already logged within the last 3 minutes.")
                             return
 
-                # Store the timestamp in MongoDB with the correct timezone
-                self.mongo_collection.update_one(
-                    {'UserID': user_id},
-                    {'$push': {'attendance': timestamp_thailand}},
-                    upsert=True
-                )
-                print(f"Attendance logged in MongoDB for {user_id} at {timestamp_thailand}")
+                    # Perform the update with explicit write concern
+                    result = self.mongo_collection.update_one(
+                        {'UserID': user_id},
+                        {'$push': {'attendance': timestamp_thailand}},
+                        upsert=True
+                    )
+
+                    if result.matched_count > 0 or result.upserted_id:
+                        print(f"Attendance logged in MongoDB for {user_id} at {timestamp_thailand}")
+                    else:
+                        print(f"Failed to log attendance for {user_id}.")
 
         except Exception as e:
-            print(f"Error logging attendance in MongoDB: {e}")
+            print(f"Error logging attendance for {user_id}: {e}")

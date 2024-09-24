@@ -22,7 +22,7 @@ class App(customtkinter.CTk):
             tlsCAFile=certifi.where()
         )
         db = client['afterfall']
-        collection = db['attendance']
+        collection = db['attendances']  # Corrected collection name
 
         # Initialize FaceRecognitionAttendance instance with MongoDB collection
         self.face_recognition_attendance = FaceRecognitionAttendance(
