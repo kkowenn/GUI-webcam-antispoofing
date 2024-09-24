@@ -30,6 +30,9 @@ class App(customtkinter.CTk):
             mongo_collection=collection  # MongoDB collection
         )
 
+        # Class-level variable to store the matched classCode
+        self.matched_class_code = None
+
         # Configure window
         self.title("AfterFall Face Recognition")
         self.geometry(f"{780}x450")  # Set the window size here (width x height)
@@ -46,55 +49,55 @@ class App(customtkinter.CTk):
         self.logo_label = customtkinter.CTkLabel(self.sidebar_frame, text="AfterFall", font=customtkinter.CTkFont(size=40, weight="bold"))
         self.logo_label.grid(row=0, column=0, padx=20, pady=(20, 10))
 
-        # Start Webcam Button
-        self.start_webcam_button = customtkinter.CTkButton(
+        # Display Classes Button (Face Recognition)
+        self.display_classes_button = customtkinter.CTkButton(
             self.sidebar_frame,
-            text="Start Webcam",
-            command=self.initialize_face_recognition,
+            text="Face Recognition",
+            command=self.show_display_classes_button,
             fg_color="blue",  # Button color
             hover_color="darkblue"  # Hover color
         )
-        self.start_webcam_button.grid(row=1, column=0, padx=20, pady=10)
-
-        # Display User Button
-        self.display_folders_button = customtkinter.CTkButton(
-            self.sidebar_frame,
-            text="Display User",
-            command=self.display_user_folders,
-            fg_color="blue",  # Button color
-            hover_color="darkblue"  # Hover color
-        )
-        self.display_folders_button.grid(row=2, column=0, padx=20, pady=10)
+        self.display_classes_button.grid(row=1, column=0, padx=20, pady=10)
 
         # Display Attendance Button
         self.display_attendance_button = customtkinter.CTkButton(
             self.sidebar_frame,
-            text="Display Attendance",
+            text="Attendance",
             command=self.display_attendance,
             fg_color="blue",  # Button color
             hover_color="darkblue"  # Hover color
         )
-        self.display_attendance_button.grid(row=3, column=0, padx=20, pady=10)
+        self.display_attendance_button.grid(row=2, column=0, padx=20, pady=10)
+
+        # Display User Button (Face Record)
+        self.display_folders_button = customtkinter.CTkButton(
+            self.sidebar_frame,
+            text="Face Record",
+            command=self.display_user_folders,
+            fg_color="blue",  # Button color
+            hover_color="darkblue"  # Hover color
+        )
+        self.display_folders_button.grid(row=3, column=0, padx=20, pady=10)
 
         # Appearance mode label
         self.appearance_mode_label = customtkinter.CTkLabel(self.sidebar_frame, text="Appearance Mode:", anchor="w")
-        self.appearance_mode_label.grid(row=5, column=0, padx=20, pady=(10, 0))
+        self.appearance_mode_label.grid(row=4, column=0, padx=20, pady=(10, 0))
         self.appearance_mode_optionemenu = customtkinter.CTkOptionMenu(self.sidebar_frame, values=["Light", "Dark", "System"],
                                                                        command=self.change_appearance_mode_event)
-        self.appearance_mode_optionemenu.grid(row=6, column=0, padx=20, pady=(10, 10))
+        self.appearance_mode_optionemenu.grid(row=5, column=0, padx=20, pady=(10, 10))
 
         # Create textbox for displaying data
         self.textbox = customtkinter.CTkTextbox(self, width=250)
         self.textbox.grid(row=0, column=1, padx=(20, 20), pady=(20, 10), sticky="nsew")
 
-        # Create entry for user ID (Used for both adding and deleting users)
+        # Create entry for user ID
         self.user_entry = customtkinter.CTkEntry(self, placeholder_text="Enter user ID")
         self.user_entry.grid(row=1, column=1, padx=(20, 20), pady=(10, 5), sticky="ew")
 
         # Create button for adding user
         self.add_user_button = customtkinter.CTkButton(
             self,
-            text="Add User",
+            text="Add user",
             command=self.add_user_folder,
             fg_color="green",  # Button color
             hover_color="darkgreen"  # Hover color
@@ -120,7 +123,20 @@ class App(customtkinter.CTk):
             hover_color="darkred"  # Hover color
         )
 
-        # Initially hide the delete widgets
+        # Class-related widgets
+        self.class_id_entry = customtkinter.CTkEntry(self, placeholder_text="Enter Class ID to Check")
+        self.class_id_entry.grid_forget()  # Initially hide
+
+        self.check_class_button = customtkinter.CTkButton(
+            self,
+            text="Check Class ID",
+            command=self.check_class_id_match,
+            fg_color="blue",  # Button color
+            hover_color="darkblue"  # Hover color
+        )
+        self.check_class_button.grid_forget()  # Initially hide
+
+        # Initially hide all delete widgets
         self.hide_all_delete_widgets()
 
         # Set default values
@@ -133,15 +149,27 @@ class App(customtkinter.CTk):
                                    "Advisor of this project:\n"
                                    "- DOBRI ATANASSOV BATOVSKI\n")
 
+
+
+
     def initialize_face_recognition(self):
         tkinter.messagebox.showinfo("Webcam Instruction", "Press 'q' to end the webcam.")
-        self.start_face_recognition()  # Automatically start face recognition after initializing
+
+        matched_class_code = self.matched_class_code  # Retrieve the matched class code stored earlier
+
+        if matched_class_code:
+            # Start face recognition and log attendance using detected user_id from the face recognition process
+            self.face_recognition_attendance.process_video_stream(matched_class_code)  # Pass matched_class_code
+        else:
+            tkinter.messagebox.showerror("Error", "No matched class code found.")
+
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
         customtkinter.set_appearance_mode(new_appearance_mode)
         self.hide_all_delete_widgets()
 
     def display_attendance(self):
+        self.hide_all_delete_widgets()  # Ensure all other widgets are hidden
         self.show_delete_attendance_button()
 
         try:
@@ -160,26 +188,30 @@ class App(customtkinter.CTk):
                 attendance_list = record.get("attendance", [])
                 class_id = record.get("classID", "Unknown")  # Get the class ID for the user
 
-                attendance_data += f"UserID: {user_id}\n"
-                attendance_data += f"  ClassID: {class_id}\n"  # Display the class ID for the user's attendance
+                # Sort the attendance timestamps in descending order (most recent first)
+                attendance_list.sort(reverse=True)
 
-                for timestamp in attendance_list:
-                    if isinstance(timestamp, datetime.datetime):
-                        if timestamp.tzinfo is None:  # If timezone info is missing
-                            timestamp = pytz.UTC.localize(timestamp)
+                # Check if attendance data exists
+                if attendance_list:
+                    for timestamp in attendance_list:
+                        if isinstance(timestamp, datetime.datetime):
+                            if timestamp.tzinfo is None:  # If timezone info is missing
+                                timestamp = pytz.UTC.localize(timestamp)
 
-                        # Convert timestamp to Thailand time
-                        timestamp_thailand = timestamp.astimezone(thailand_tz)
-                        attendance_data += f"    - {timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')}\n"
+                            # Convert timestamp to Thailand time
+                            timestamp_thailand = timestamp.astimezone(thailand_tz)
+                            formatted_timestamp = timestamp_thailand.strftime('%Y-%m-%d %H:%M:%S %Z%z')
 
-                attendance_data += "\n"
+                            # Display the UserID, ClassID, and timestamp in one line
+                            attendance_data += f"UserID: {user_id} ClassID: {class_id} - {formatted_timestamp}\n"
 
             # Display the formatted attendance data in the textbox
             self.textbox.delete("1.0", tkinter.END)
             self.textbox.insert("1.0", attendance_data)
 
         except Exception as e:
-            tkinter.messagebox.showerror("Error", f"An error occurred while fetching data from MongoDB: {str(e)}")
+            tkinter.messagebox.showerror("Error", f"An error occurred while fetching attendance data: {str(e)}")
+            print(f"Error: {str(e)}")  # Log the error for debugging
 
     def display_user_folders(self):
         """
@@ -187,6 +219,7 @@ class App(customtkinter.CTk):
         Display users with no faces dataset and log whether the folder for each user exists or not.
         Show all users at the end of the list.
         """
+        self.hide_all_delete_widgets()  # Ensure all other widgets are hidden
         self.show_delete_user_widgets()
         folder_path = "data/dataset_faces"
 
@@ -274,6 +307,72 @@ class App(customtkinter.CTk):
         except Exception as e:
             tkinter.messagebox.showerror("Error", f"An error occurred while deleting attendance data: {str(e)}")
 
+    def show_display_classes_button(self):
+        """
+        Fetch and display all class IDs from the MongoDB database in the textbox.
+        Show the check class ID button and an entry to verify class ID matches.
+        """
+        self.hide_all_delete_widgets()  # Hide all other widgets before displaying class widgets
+
+        try:
+            # Fetch all class IDs from the MongoDB collection
+            mongo_data = list(self.face_recognition_attendance.mongo_collection.find({}, {'classID': 1, '_id': 0}))
+
+            if not mongo_data:
+                tkinter.messagebox.showinfo("Info", "No classes found in MongoDB.")
+                return
+
+            # Prepare data to display all class IDs
+            class_data = "Class IDs in the Database:\n\n"
+            class_ids = set()
+
+            for record in mongo_data:
+                class_id = record.get("classID", "Unknown")
+                class_ids.add(class_id)
+
+            for class_id in class_ids:
+                class_data += f"Class ID: {class_id}\n"
+
+            # Display the class IDs in the textbox
+            self.textbox.delete("1.0", tkinter.END)
+            self.textbox.insert("1.0", class_data)
+
+            # Show the class-related widgets
+            self.class_id_entry.grid(row=3, column=1, padx=(20, 20), pady=(5, 5), sticky="ew")
+            self.check_class_button.grid(row=4, column=1, padx=(20, 20), pady=(5, 20), sticky="ew")
+
+        except Exception as e:
+            tkinter.messagebox.showerror("Error", f"An error occurred while fetching class IDs: {str(e)}")
+
+    def check_class_id_match(self):
+        """
+        Check if the input class ID matches any class IDs in the MongoDB database.
+        If a match is found, store it in the class-level variable self.matched_class_code and start the face recognition webcam.
+        """
+        input_class_id = self.class_id_entry.get().strip()
+
+        if not input_class_id:
+            tkinter.messagebox.showinfo("Info", "Please enter a class ID.")
+            return
+
+        try:
+            # Fetch all class IDs from the MongoDB collection
+            mongo_data = list(self.face_recognition_attendance.mongo_collection.find({}, {'classID': 1, '_id': 0}))
+
+            # Extract class IDs from the database
+            class_ids = {record.get("classID", "Unknown") for record in mongo_data}
+
+            if input_class_id in class_ids:
+                # Class ID matches, store the matched classCode
+                self.matched_class_code = input_class_id
+                tkinter.messagebox.showinfo("Match Found", f"The class ID '{self.matched_class_code}' matches a class in the database.\nStarting webcam for face detection...")
+                self.initialize_face_recognition()  # Start the webcam and face detection
+            else:
+                tkinter.messagebox.showinfo("No Match", f"The class ID '{input_class_id}' does not match any class in the database.")
+
+        except Exception as e:
+            tkinter.messagebox.showerror("Error", f"An error occurred while checking class IDs: {str(e)}")
+
     def start_face_recognition(self):
         if self.face_recognition_attendance:
             self.face_recognition_attendance.process_video_stream()
@@ -298,9 +397,18 @@ class App(customtkinter.CTk):
     def hide_delete_attendance_widgets(self):
         self.delete_attendance_button.grid_forget()
 
+    def hide_class_widgets(self):
+        """Hides the class ID entry and check button."""
+        self.class_id_entry.grid_forget()  # Hide the entry
+        self.check_class_button.grid_forget()  # Hide the button
+
     def hide_all_delete_widgets(self):
+        """
+        Hides all the widgets when switching between functionalities.
+        """
         self.hide_delete_user_widgets()
         self.hide_delete_attendance_widgets()
+        self.hide_class_widgets()  # Hide class-related widgets when switching
 
 if __name__ == "__main__":
     app = App()

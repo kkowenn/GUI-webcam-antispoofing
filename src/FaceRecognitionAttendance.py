@@ -60,7 +60,7 @@ class FaceRecognitionAttendance:
         avg_ear = (left_ear + right_ear) / 2.0
         return avg_ear < threshold
 
-    def process_video_stream(self):
+    def process_video_stream(self, matched_class_code):
         video_capture = cv2.VideoCapture(0)
         EYE_AR_THRESH = 0.25
         EYE_AR_CONSEC_FRAMES = 3
@@ -101,7 +101,8 @@ class FaceRecognitionAttendance:
                         blink_counter[user_id] += 1
                     else:
                         if blink_counter[user_id] >= EYE_AR_CONSEC_FRAMES and not has_logged_blink[user_id]:
-                            self.log_attendance(user_id)
+                            # Log attendance with both user_id and matched_class_code
+                            self.log_attendance(user_id, matched_class_code)
                             has_logged_blink[user_id] = True
                             blink_counter[user_id] = 0
 
@@ -122,53 +123,31 @@ class FaceRecognitionAttendance:
         video_capture.release()
         cv2.destroyAllWindows()
 
-    def log_attendance(self, user_id):
-        # Get the current time in UTC
-        timestamp_utc = datetime.datetime.now(pytz.UTC)
 
-        # Convert to Thailand timezone (UTC+7)
+    def log_attendance(self, user_id, matched_class_code):
+        # The rest of your attendance logging logic
+        timestamp_utc = datetime.datetime.now(pytz.UTC)
         thailand_tz = pytz.timezone('Asia/Bangkok')
         timestamp_thailand = timestamp_utc.astimezone(thailand_tz)
 
-        cooldown_period = datetime.timedelta(minutes=3)
-
         try:
             if self.mongo_collection is not None:
-                # Create or update the user document with attendance
                 user_doc = self.mongo_collection.find_one({'UserID': user_id})
 
                 if not user_doc:
-                    # If user does not exist, create the document
-                    self.mongo_collection.insert_one({'UserID': user_id, 'attendance': [timestamp_thailand]})
+                    self.mongo_collection.insert_one({
+                        'UserID': user_id,
+                        'attendance': [timestamp_thailand],
+                        'classID': matched_class_code
+                    })
                 else:
-                    # Ensure 'attendance' is a list and append new timestamp
-                    if not isinstance(user_doc.get('attendance'), list):
-                        self.mongo_collection.update_one(
-                            {'UserID': user_id},
-                            {'$set': {'attendance': [user_doc['attendance']]}},
-                            upsert=True
-                        )
-                        user_doc = self.mongo_collection.find_one({'UserID': user_id})
-
-                    if 'attendance' in user_doc and user_doc['attendance']:
-                        last_timestamp = user_doc['attendance'][-1]
-                        if last_timestamp.tzinfo is None:
-                            last_timestamp = last_timestamp.replace(tzinfo=pytz.UTC)
-                        if last_timestamp + cooldown_period > timestamp_utc:
-                            print(f"Attendance for {user_id} was already logged within the last 3 minutes.")
-                            return
-
-                    # Perform the update with explicit write concern
-                    result = self.mongo_collection.update_one(
+                    self.mongo_collection.update_one(
                         {'UserID': user_id},
-                        {'$push': {'attendance': timestamp_thailand}},
+                        {'$push': {'attendance': timestamp_thailand}, '$set': {'classID': matched_class_code}},
                         upsert=True
                     )
 
-                    if result.matched_count > 0 or result.upserted_id:
-                        print(f"Attendance logged in MongoDB for {user_id} at {timestamp_thailand}")
-                    else:
-                        print(f"Failed to log attendance for {user_id}.")
+                print(f"Attendance logged for {user_id} in class {matched_class_code}")
 
         except Exception as e:
             print(f"Error logging attendance for {user_id}: {e}")
