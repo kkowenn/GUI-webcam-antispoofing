@@ -1,0 +1,6 @@
+_id,id,name,email,password,role,classIds,__v
+6693a95ab91d6e75d95b2c82,1,Admin,admin@gmail.com,admin,admin,[''],
+6693b061aa4a18236df9394a,1010101,Robert Teacher,teacher@gmail.com,teacher,teacher,"['CSX4108', 'CSX3006']",
+6693b085aa4a18236df9394b,4,Chris Student,user4@gmail.com,password4,student,"['CSX4108', 'CSX3006']",
+66b7501e846f50bc43c60825,6420015,Lorenzo Dalmeida,u6420015@au.edu,password,student,"['CSX3006', 'CSX3007', 'CSX3008', 'CSX3009', 'CSX3010']",
+66f2e059b3a58679c851564e,6420063,Kritsada,u6420063@au.edu,password,student,[],0.0
