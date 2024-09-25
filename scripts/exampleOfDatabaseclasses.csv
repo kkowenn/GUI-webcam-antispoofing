@@ -1,0 +1,7 @@
+_id,className,classCode,teacherID,studentIDs,dates
+66efdfd95137f5c9cfd3d11e,Data Analytics,CSX4212,1010101,"['6420015', '6420063', '6543210']","[datetime.datetime(2024, 9, 16, 9, 26, 32, 158000), datetime.datetime(2024, 9, 17, 9, 26, 32, 158000), datetime.datetime(2024, 9, 18, 9, 26, 32, 158000), datetime.datetime(2024, 9, 19, 9, 26, 32, 158000), datetime.datetime(2024, 9, 20, 9, 26, 32, 158000), datetime.datetime(2024, 9, 21, 9, 26, 32, 158000), datetime.datetime(2024, 9, 22, 9, 26, 32, 158000)]"
+66f1222c8590f7c8d12f726e,Programming Languages,CSX3006,1010101,"['6420015', '6420063', '6543210']","[datetime.datetime(2024, 9, 16, 9, 26, 32, 158000), datetime.datetime(2024, 9, 17, 9, 26, 32, 158000), datetime.datetime(2024, 9, 18, 9, 26, 32, 158000), datetime.datetime(2024, 9, 19, 9, 26, 32, 158000), datetime.datetime(2024, 9, 20, 9, 26, 32, 158000), datetime.datetime(2024, 9, 21, 9, 26, 32, 158000), datetime.datetime(2024, 9, 22, 9, 26, 32, 158000)]"
+66f27adeb20c7ad4fc42c9c6,Computer Vision,CSX4213,,,
+66f27adeb20c7ad4fc42c9c7,Machine Learning,CSX5010,,,
+66f27adeb20c7ad4fc42c9c8,Cloud Computing,CSX5222,,,
+66f27adeb20c7ad4fc42c9c9,Artificial Intelligence,CSX6234,,,
