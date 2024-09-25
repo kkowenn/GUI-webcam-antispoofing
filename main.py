@@ -181,6 +181,9 @@ class App(customtkinter.CTk):
             # Prepare a string to hold all the attendance data
             attendance_data = ""
 
+            # Define the Thai timezone
+            thai_timezone = pytz.timezone('Asia/Bangkok')
+
             # Iterate over all attendance records
             for record in attendance_records:
                 user_id = record.get('UserID', 'Unknown')
@@ -190,15 +193,27 @@ class App(customtkinter.CTk):
                 # Add the user and class information
                 attendance_data += f"UserID: {user_id} ClassID: {class_id}\n"
 
-                # Append each attendance timestamp
+                # Append each attendance timestamp, converting it to Thai time for display purposes only
                 for timestamp in attendance_list:
-                    attendance_data += f"  - {timestamp}\n"
+                    utc_time = timestamp  # Assuming the timestamp is stored in UTC in the database
+                    utc_time = utc_time.replace(tzinfo=pytz.utc)  # Attach UTC timezone if needed
+
+                    # Convert UTC time to Thai timezone for display
+                    thai_time = utc_time.astimezone(thai_timezone)
+
+                    # Format the time for display
+                    formatted_time = thai_time.strftime('%Y-%m-%d %H:%M:%S')  # Format the time
+                    attendance_data += f"  - {formatted_time} (Thai Time)\n"
 
                 attendance_data += "\n"  # Separate records with a newline for clarity
 
             # Display the attendance data in the textbox
             self.textbox.delete("1.0", tkinter.END)
             self.textbox.insert("1.0", attendance_data)
+
+            # Show the delete attendance button
+            self.hide_all_delete_widgets()  # Hide other delete widgets
+            self.delete_attendance_button.grid(row=3, column=1, padx=(20, 20), pady=(5, 20), sticky="ew")  # Ensure button is visible
 
         except Exception as e:
             self.textbox.delete("1.0", tkinter.END)
