@@ -4,7 +4,6 @@ import face_recognition
 import numpy as np
 from scipy.spatial import distance as dist
 import datetime
-import pandas as pd
 import pytz
 import time
 
@@ -13,6 +12,10 @@ class FaceRecognitionAttendance:
         self.dataset_path = dataset_path
         self.mongo_collection = mongo_collection
         self.known_face_encodings, self.known_user_ids = self.load_face_encodings()
+
+    def set_mongo_collection(self, mongo_collection):
+        """Update the MongoDB collection dynamically."""
+        self.mongo_collection = mongo_collection
 
     def load_face_encodings(self):
         known_face_encodings = []
@@ -32,26 +35,6 @@ class FaceRecognitionAttendance:
                             known_user_ids.append(user_id)
         return known_face_encodings, known_user_ids
 
-    def fetch_data_from_mongo(self):
-        try:
-            mongo_data = list(self.mongo_collection.find({}, {'_id': 0}))  # Exclude MongoDB-specific '_id' field
-            if len(mongo_data) == 0:
-                print("No data found in MongoDB.")
-            else:
-                print(f"Fetched {len(mongo_data)} records from MongoDB.")
-            mongo_df = pd.DataFrame(mongo_data)
-            return mongo_df
-        except Exception as e:
-            print(f"Error fetching data from MongoDB: {e}")
-            return None
-
-    def eye_aspect_ratio(self, eye):
-        A = dist.euclidean(eye[1], eye[5])
-        B = dist.euclidean(eye[2], eye[4])
-        C = dist.euclidean(eye[0], eye[3])
-        ear = (A + B) / (2.0 * C)
-        return ear
-
     def is_blinking(self, face_landmarks, threshold=0.3):
         left_eye = face_landmarks["left_eye"]
         right_eye = face_landmarks["right_eye"]
@@ -59,6 +42,13 @@ class FaceRecognitionAttendance:
         right_ear = self.eye_aspect_ratio(right_eye)
         avg_ear = (left_ear + right_ear) / 2.0
         return avg_ear < threshold
+
+    def eye_aspect_ratio(self, eye):
+        A = dist.euclidean(eye[1], eye[5])
+        B = dist.euclidean(eye[2], eye[4])
+        C = dist.euclidean(eye[0], eye[3])
+        ear = (A + B) / (2.0 * C)
+        return ear
 
     def process_video_stream(self, matched_class_code):
         video_capture = cv2.VideoCapture(0)
@@ -96,12 +86,10 @@ class FaceRecognitionAttendance:
                     if user_id not in has_logged_blink:
                         has_logged_blink[user_id] = False
 
-                    # Check for blinking
                     if self.is_blinking(face_landmarks, threshold=EYE_AR_THRESH):
                         blink_counter[user_id] += 1
                     else:
                         if blink_counter[user_id] >= EYE_AR_CONSEC_FRAMES and not has_logged_blink[user_id]:
-                            # Log attendance with both user_id and matched_class_code
                             self.log_attendance(user_id, matched_class_code)
                             has_logged_blink[user_id] = True
                             blink_counter[user_id] = 0
@@ -124,20 +112,17 @@ class FaceRecognitionAttendance:
         cv2.destroyAllWindows()
 
     def log_attendance(self, user_id, matched_class_code):
-        # Get the current time in UTC and convert it to Thailand timezone
         timestamp_utc = datetime.datetime.now(pytz.UTC)
         thailand_tz = pytz.timezone('Asia/Bangkok')
         timestamp_thailand = timestamp_utc.astimezone(thailand_tz)
 
         try:
             if self.mongo_collection is not None:
-                # Check if document exists for the given userID and classID
                 user_doc = self.mongo_collection.find_one({'UserID': user_id, 'classID': matched_class_code})
 
                 print(f"Found document for UserID: {user_id}, ClassID: {matched_class_code}: {user_doc}")
 
                 if not user_doc:
-                    # Insert a new document if none exists for this user and class
                     result = self.mongo_collection.insert_one({
                         'UserID': user_id,
                         'attendance': [timestamp_thailand],
@@ -145,16 +130,15 @@ class FaceRecognitionAttendance:
                     })
                     print(f"Insertion result: {result.inserted_id}")
                 else:
-                    # If the document exists, push the new attendance timestamp
                     update_result = self.mongo_collection.update_one(
                         {'UserID': user_id, 'classID': matched_class_code},
-                        {'$push': {'attendance': timestamp_thailand}}  # Push attendance to the array
+                        {'$push': {'attendance': timestamp_thailand}}
                     )
 
-                    # Debugging: Check the result of the update operation
                     print(f"Matched count: {update_result.matched_count}, Modified count: {update_result.modified_count}")
 
                 print(f"Attendance logged for {user_id} in class {matched_class_code}")
 
         except Exception as e:
             print(f"Error logging attendance for {user_id}: {e}")
+
