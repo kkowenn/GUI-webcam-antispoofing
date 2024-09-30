@@ -46,8 +46,6 @@ python main.py
 ### Display attendanceCheck.csv:
 ![image](imageForReadme/2.png)
 ### Delete and Saving the face by using OpenCV and do augemention face image:
-https://github.com/OwenYooYoo/Augmentation-FaceRecognition
-
 ![image](imageForReadme/3.png)
 ### Liveness detection by detect the eye blinking:
 ![image](imageForReadme/4.png)
